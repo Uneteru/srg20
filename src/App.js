@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import Web3 from 'web3';
+import { Chart } from 'react-google-charts';
 
 const App = () => {
   const [tokenAddress, setTokenAddress] = useState('0x43C3EBaFdF32909aC60E80ee34aE46637E743d65');
@@ -75,8 +76,17 @@ const App = () => {
       setTokenSymbol(symbol);
 
       const totalTx = await tokenContract.methods.totalTx().call();
+      console.log(totalTx);
       const latestTimestamp = await tokenContract.methods.txTimeStamp(totalTx).call();
+      console.log('time ', latestTimestamp);
       const latestCandle = await tokenContract.methods.candleStickData(latestTimestamp).call();
+      console.log('price ', latestCandle.close);
+
+      const txTimeStamps = [];
+      for (let i = 1; i <= totalTx; i++) {
+          txTimeStamps.push(tokenContract.methods.txTimeStamp(i.toString()));
+      }
+      console.log(txTimeStamps);
 
       const price = web3.utils.fromWei(latestCandle.close, 'ether');
       setTokenPrice(price);
@@ -118,7 +128,7 @@ const App = () => {
             cursor: 'pointer',
           }}
         >
-          Fetch Data
+          Fetch Price
         </button>
       </div>
 
