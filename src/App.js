@@ -54,6 +54,7 @@ const App = () => {
       type: 'function',
     },
   ];
+  const tokenContract = new web3.eth.Contract(tokenAbi, tokenAddress);
 
   const fetchTokenInfo = async () => {
     setError('');
@@ -67,7 +68,6 @@ const App = () => {
     }
 
     try {
-      const tokenContract = new web3.eth.Contract(tokenAbi, tokenAddress);
 
       const name = await tokenContract.methods.name().call();
       setTokenName(name);
@@ -77,26 +77,33 @@ const App = () => {
 
       const totalTx = await tokenContract.methods.totalTx().call();
       console.log(totalTx);
+
       const latestTimestamp = await tokenContract.methods.txTimeStamp(totalTx).call();
-      console.log('time ', latestTimestamp);
+      const latestDate = new Date(Number(latestTimestamp) * 1000);
+      console.log(latestDate);
       const latestCandle = await tokenContract.methods.candleStickData(latestTimestamp).call();
       console.log('price ', latestCandle.close);
-
-
-      const timestamps = [];
-      for (let i = 1; i <= totalTx; i++) {
-        const timestamp = await tokenContract.methods.txTimeStamp(i).call();
-        timestamps.push({ txCount: i, timestamp });
-        console.log(`Transaction #${i}: Timestamp - ${timestamp}`);
-      }
-  
-      console.log('All Timestamps:', timestamps);
-
       const price = web3.utils.fromWei(latestCandle.close, 'ether');
       setTokenPrice(price);
     } catch (err) {
       setError('Failed to fetch token info. Please check the address or try again.');
     }
+  };
+
+  const fetchTokenPriceHistory = async () => {
+    const totalTx = await tokenContract.methods.totalTx().call();
+    const priceData = [];
+    for (let i = 1; i <= totalTx; i++) {
+      const timestamp = await tokenContract.methods.txTimeStamp(i).call();
+      const candle = await tokenContract.methods.candleStickData(timestamp).call();
+      const closePrice = web3.utils.fromWei(candle.close, 'ether');
+
+      priceData.push({ timestamp, closePrice });
+      console.log(`Transaction #${i}: Timestamp - ${timestamp}, Close Price - ${closePrice}`);
+    }
+
+  console.log('All Price Data:', priceData);
+
   };
 
   const handleInputChange = (e) => {
@@ -133,6 +140,19 @@ const App = () => {
           }}
         >
           Fetch Price
+        </button>
+        <button
+          onClick={fetchTokenPriceHistory}
+          style={{
+            padding: '10px',
+            backgroundColor: '#007bff',
+            color: 'white',
+            border: 'none',
+            borderRadius: '5px',
+            cursor: 'pointer',
+          }}
+        >
+          Fetch Price History
         </button>
       </div>
 
