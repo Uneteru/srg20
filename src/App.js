@@ -1,6 +1,5 @@
 import React, { useState } from 'react';
 import Web3 from 'web3';
-import { Chart } from 'react-google-charts';
 
 const App = () => {
   const [tokenAddress, setTokenAddress] = useState('0x43C3EBaFdF32909aC60E80ee34aE46637E743d65');
@@ -61,6 +60,8 @@ const App = () => {
     setTokenName('');
     setTokenSymbol('');
     setTokenPrice('');
+    const retrievedData = JSON.parse(localStorage.getItem('priceData'));
+    console.log(retrievedData);
 
     if (!web3.utils.isAddress(tokenAddress)) {
       setError('Invalid token address');
@@ -68,7 +69,6 @@ const App = () => {
     }
 
     try {
-
       const name = await tokenContract.methods.name().call();
       setTokenName(name);
 
@@ -76,14 +76,8 @@ const App = () => {
       setTokenSymbol(symbol);
 
       const totalTx = await tokenContract.methods.totalTx().call();
-      console.log(totalTx);
-
       const latestTimestamp = await tokenContract.methods.txTimeStamp(totalTx).call();
-      console.log('latest timestamp: ', latestTimestamp);
-      const latestDate = new Date(Number(latestTimestamp) * 1000);
-      console.log('latest date: ',latestDate);
       const latestCandle = await tokenContract.methods.candleStickData(latestTimestamp).call();
-      console.log('price ', latestCandle.close);
       const price = web3.utils.fromWei(latestCandle.close, 'ether');
       setTokenPrice(price);
     } catch (err) {
@@ -91,22 +85,25 @@ const App = () => {
     }
   };
 
-  const fetchTokenPriceHistory = async () => {
-    const totalTx = await tokenContract.methods.totalTx().call();
-    const priceData = [];
-    for (let i = 1; i <= totalTx; i++) {
-      const timestamp = await tokenContract.methods.txTimeStamp(i).call();
-      const latestDate = new Date(Number(timestamp) * 1000);
-      const candle = await tokenContract.methods.candleStickData(timestamp).call();
-      const closePrice = web3.utils.fromWei(candle.close, 'ether');
+const fetchTokenPriceHistory = async () => {
+  const storedData = localStorage.getItem('priceData');
+  if (storedData) {
+    console.log('All Price Data:', JSON.parse(storedData));
+    return;
+  }
 
-      priceData.push({ latestDate, closePrice });
-      console.log(`Transaction #${i}: Timestamp - ${latestDate}, Close Price - ${closePrice}`);
-    }
+  const totalTx = await tokenContract.methods.totalTx().call();
+  const priceData = [];
+  for (let i = 1; i <= totalTx; i++) {
+    const timestamp = await tokenContract.methods.txTimeStamp(i).call();
+    const candle = await tokenContract.methods.candleStickData(timestamp).call();
+    const closePrice = web3.utils.fromWei(candle.close, 'ether');
+    priceData.push({ date: new Date(Number(timestamp) * 1000), closePrice });
+  }
 
+  localStorage.setItem('priceData', JSON.stringify(priceData));
   console.log('All Price Data:', priceData);
-
-  };
+};
 
   const handleInputChange = (e) => {
     setTokenAddress(e.target.value);
