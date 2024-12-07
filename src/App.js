@@ -79,8 +79,9 @@ const App = () => {
       console.log(totalTx);
 
       const latestTimestamp = await tokenContract.methods.txTimeStamp(totalTx).call();
+      console.log('latest timestamp: ', latestTimestamp);
       const latestDate = new Date(Number(latestTimestamp) * 1000);
-      console.log(latestDate);
+      console.log('latest date: ',latestDate);
       const latestCandle = await tokenContract.methods.candleStickData(latestTimestamp).call();
       console.log('price ', latestCandle.close);
       const price = web3.utils.fromWei(latestCandle.close, 'ether');
@@ -95,11 +96,12 @@ const App = () => {
     const priceData = [];
     for (let i = 1; i <= totalTx; i++) {
       const timestamp = await tokenContract.methods.txTimeStamp(i).call();
+      const latestDate = new Date(Number(timestamp) * 1000);
       const candle = await tokenContract.methods.candleStickData(timestamp).call();
       const closePrice = web3.utils.fromWei(candle.close, 'ether');
 
-      priceData.push({ timestamp, closePrice });
-      console.log(`Transaction #${i}: Timestamp - ${timestamp}, Close Price - ${closePrice}`);
+      priceData.push({ latestDate, closePrice });
+      console.log(`Transaction #${i}: Timestamp - ${latestDate}, Close Price - ${closePrice}`);
     }
 
   console.log('All Price Data:', priceData);
