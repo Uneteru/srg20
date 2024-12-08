@@ -47,6 +47,20 @@ const App = () => {
     },
     {
       constant: true,
+      inputs: [],
+      name: 'totalVolume',
+      outputs: [{ name: '', type: 'uint256' }],
+      type: 'function',
+    },
+    {
+      constant: true,
+      inputs: [{ name: 'index', type: 'uint256' }],
+      name: 'tVol',
+      outputs: [{ name: '', type: 'uint256' }],
+      type: 'function',
+    },
+    {
+      constant: true,
       inputs: [{ name: 'index', type: 'uint256' }],
       name: 'txTimeStamp',
       outputs: [{ name: '', type: 'uint256' }],
@@ -60,8 +74,6 @@ const App = () => {
     setTokenName('');
     setTokenSymbol('');
     setTokenPrice('');
-    const retrievedData = JSON.parse(localStorage.getItem('priceData'));
-    console.log(retrievedData);
 
     if (!web3.utils.isAddress(tokenAddress)) {
       setError('Invalid token address');
@@ -85,25 +97,96 @@ const App = () => {
     }
   };
 
-const fetchTokenPriceHistory = async () => {
-  const storedData = localStorage.getItem('priceData');
-  if (storedData) {
-    console.log('All Price Data:', JSON.parse(storedData));
-    return;
+  const fetchDailyVolume = async () => {
+    const storedData = localStorage.getItem('dailyVolume');
+    if (storedData) {
+      console.log('Daily Volume History:', JSON.parse(storedData));
+      return;
+    }
+
+    const totalTx = await tokenContract.methods.totalTx().call();
+    console.log('Total Transactions:', totalTx);
+
+    const dailyVolume = {};
+
+    for (let i = 1; i <= totalTx; i++) {
+      const txTimestamp = await tokenContract.methods.txTimeStamp(i).call();
+      const txVolume = await tokenContract.methods.tVol(txTimestamp).call();
+      const date = new Date((Number(txTimestamp) * 1000)).toISOString().split('T')[0];
+      console.log(date);
+
+        // Group by date
+        if (!dailyVolume[date]) {
+          dailyVolume[date] = 0;
+        }
+        dailyVolume[date] += parseFloat(web3.utils.fromWei(txVolume, 'ether'));
+        console.log(dailyVolume[date]);
+
+    }
+    localStorage.setItem('dailyVolume', JSON.stringify(dailyVolume));
+    console.log('Daily Volume History:', dailyVolume);
+
   }
 
-  const totalTx = await tokenContract.methods.totalTx().call();
-  const priceData = [];
-  for (let i = 1; i <= totalTx; i++) {
-    const timestamp = await tokenContract.methods.txTimeStamp(i).call();
-    const candle = await tokenContract.methods.candleStickData(timestamp).call();
-    const closePrice = web3.utils.fromWei(candle.close, 'ether');
-    priceData.push({ date: new Date(Number(timestamp) * 1000), closePrice });
-  }
+  const fetchTokenPriceHistory = async () => {
+    const storedData = localStorage.getItem('priceData');
+    if (storedData) {
+      console.log('All Price Data:', JSON.parse(storedData));
+      return;
+    }
 
-  localStorage.setItem('priceData', JSON.stringify(priceData));
-  console.log('All Price Data:', priceData);
-};
+    const totalTx = await tokenContract.methods.totalTx().call();
+    const priceData = [];
+    for (let i = 1; i <= totalTx; i++) {
+      const timestamp = await tokenContract.methods.txTimeStamp(i).call();
+      const candle = await tokenContract.methods.candleStickData(timestamp).call();
+      const closePrice = web3.utils.fromWei(candle.close, 'ether');
+      priceData.push({ date: new Date(Number(timestamp) * 1000), closePrice });
+    }
+
+    localStorage.setItem('priceData', JSON.stringify(priceData));
+    console.log('All Price Data:', priceData);
+  };
+
+  const fetchHistoryLiquidity = async () => {
+    const apiKey = process.env.REACT_APP_BSCSCAN_API_KEY;
+    const url = `https://api.bscscan.com/api?module=contract&action=getabi&address=${tokenAddress}&apikey=${apiKey}`;
+    let contractAbi = null; // Declare contractAbi outside the try block
+  
+    try {
+      const response = await fetch(url);
+      const data = await response.json();
+      if (data.status === '1') {
+        contractAbi = JSON.parse(data.result); // Assign value to contractAbi
+      } else {
+        throw new Error('Failed to fetch ABI: ' + data.result);
+      }
+    } catch (err) {
+      console.error('Error fetching ABI:', err);
+      setError('Failed to fetch ABI. Please check the address or try again.');
+      return; // Exit the function if fetching ABI fails
+    }
+  
+    // Proceed only if contractAbi is available
+    if (contractAbi) {
+      const LiqContract = new web3.eth.Contract(contractAbi, tokenAddress);
+  
+      try {
+        const currentLiquidity = await LiqContract.methods.getLiquidity().call();
+        console.log('Current Liquidity:', currentLiquidity);
+  
+        /*
+        const totalTx = await tokenContract.methods.totalTx().call();
+        for (let i = totalTx; i >= 1; i--) {
+          // Logic to reconstruct liquidity history
+        }
+        */
+      } catch (err) {
+        console.error('Error interacting with contract:', err);
+        setError('Failed to fetch liquidity. Please try again.');
+      }
+    }
+  };
 
   const handleInputChange = (e) => {
     setTokenAddress(e.target.value);
@@ -152,6 +235,32 @@ const fetchTokenPriceHistory = async () => {
           }}
         >
           Fetch Price History
+        </button>
+        <button
+          onClick={fetchDailyVolume}
+          style={{
+            padding: '10px',
+            backgroundColor: '#007bff',
+            color: 'white',
+            border: 'none',
+            borderRadius: '5px',
+            cursor: 'pointer',
+          }}
+        >
+          Fetch Daily Volume
+        </button>
+        <button
+          onClick={fetchHistoryLiquidity}
+          style={{
+            padding: '10px',
+            backgroundColor: '#007bff',
+            color: 'white',
+            border: 'none',
+            borderRadius: '5px',
+            cursor: 'pointer',
+          }}
+        >
+          Fetch History Liquidity
         </button>
       </div>
 
