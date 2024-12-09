@@ -14,6 +14,7 @@ const App = () => {
   const web3 = new Web3('https://bsc-dataseed4.ninicoin.io/');
   const tokenAbi = require('./ContractAbi.json');
   const tokenContract = new web3.eth.Contract(tokenAbi, tokenAddress);
+  const dDivisor = 10 ** 45; //SRG20BSC
 
   const fetchTokenInfo = async () => {
     setError('');
@@ -36,7 +37,7 @@ const App = () => {
       const totalTx = await tokenContract.methods.totalTx().call();
       const latestTimestamp = await tokenContract.methods.txTimeStamp(totalTx).call();
       const latestCandle = await tokenContract.methods.candleStickData(latestTimestamp).call();
-      const price = web3.utils.fromWei(latestCandle.close, 'ether');
+      const price = Number(latestCandle.close) / dDivisor;
       setTokenPrice(price);
     } catch (err) {
       setError('Failed to fetch token info. Please check the address or try again.');
@@ -75,7 +76,7 @@ const App = () => {
   }
 
   const fetchTokenPriceHistory = async () => {
-    const storedData = localStorage.getItem('priceData');
+    const storedData = localStorage.getItem('newpriceData');
     if (storedData) {
       console.log('All Price Data:', JSON.parse(storedData));
       return;
@@ -84,10 +85,11 @@ const App = () => {
     const totalTx = await tokenContract.methods.totalTx().call();
     const priceData = [];
     for (let i = 1; i <= totalTx; i++) {
+      if (i > 10) break; // Limit to last 10 transactions
       const timestamp = await tokenContract.methods.txTimeStamp(i).call();
       const candle = await tokenContract.methods.candleStickData(timestamp).call();
-      const closePrice = web3.utils.fromWei(candle.close, 'ether');
-      priceData.push({ date: new Date(Number(timestamp) * 1000), closePrice });
+      const closePrice = Number(candle.close) / dDivisor;
+      priceData.push({ date: new Date(Number(timestamp) * 1000).toLocaleString('en-US'), closePrice });
     }
 
     localStorage.setItem('priceData', JSON.stringify(priceData));
