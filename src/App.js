@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import Web3 from 'web3';
 
+
 const App = () => {
   const [tokenAddress, setTokenAddress] = useState('0x43C3EBaFdF32909aC60E80ee34aE46637E743d65');
   const [tokenName, setTokenName] = useState('');
@@ -8,72 +9,10 @@ const App = () => {
   const [tokenPrice, setTokenPrice] = useState('');
   const [error, setError] = useState('');
 
-  const web3 = new Web3('https://bsc-dataseed4.ninicoin.io/');
 
-  const tokenAbi = [
-    {
-      constant: true,
-      inputs: [],
-      name: 'name',
-      outputs: [{ name: '', type: 'string' }],
-      type: 'function',
-    },
-    {
-      constant: true,
-      inputs: [],
-      name: 'symbol',
-      outputs: [{ name: '', type: 'string' }],
-      type: 'function',
-    },
-    {
-      constant: true,
-      inputs: [{ name: 'timestamp', type: 'uint256' }],
-      name: 'candleStickData',
-      outputs: [
-        { name: 'time', type: 'uint256' },
-        { name: 'open', type: 'uint256' },
-        { name: 'close', type: 'uint256' },
-        { name: 'high', type: 'uint256' },
-        { name: 'low', type: 'uint256' },
-      ],
-      type: 'function',
-    },
-    {
-      constant: true,
-      inputs: [],
-      name: 'totalTx',
-      outputs: [{ name: '', type: 'uint256' }],
-      type: 'function',
-    },
-    {
-      constant: true,
-      inputs: [],
-      name: 'totalVolume',
-      outputs: [{ name: '', type: 'uint256' }],
-      type: 'function',
-    },
-    {
-      constant: true,
-      inputs: [{ name: 'index', type: 'uint256' }],
-      name: 'tVol',
-      outputs: [{ name: '', type: 'uint256' }],
-      type: 'function',
-    },
-    {
-      constant: true,
-      inputs: [{ name: 'index', type: 'uint256' }],
-      name: 'txTimeStamp',
-      outputs: [{ name: '', type: 'uint256' }],
-      type: 'function',
-    },
-    {
-      constant: true,
-      inputs: [],
-      name: 'getLiquidity',
-      outputs: [{ name: '', type: 'uint256' }],
-      type: 'function',
-    },
-  ];
+  //Ititializa web3 Contract
+  const web3 = new Web3('https://bsc-dataseed4.ninicoin.io/');
+  const tokenAbi = require('./ContractAbi.json');
   const tokenContract = new web3.eth.Contract(tokenAbi, tokenAddress);
 
   const fetchTokenInfo = async () => {
@@ -156,48 +95,50 @@ const App = () => {
   };
 
   const fetchHistoryLiquidity = async () => {
+    try {
+      const currentLiquidity = await tokenContract.methods.getLiquidity().call();
+      console.log("Current Liquidity:", currentLiquidity);
   
-      try {
-        const currentLiquidity = await tokenContract.methods.getLiquidity().call();
-        console.log('Current Liquidity:', currentLiquidity);
+      let liquidityAtTimestamp = Number(currentLiquidity);
   
-        let liquidityAtTimestamp = Number(currentLiquidity);
-        
-        let totalTx = await tokenContract.methods.totalTx().call();
-        totalTx = Number(totalTx);
-
-        for (let i = totalTx; i >= 1; i--) {
-          if (i <= totalTx - 10) break;
-          const timestamp = await tokenContract.methods.txTimeStamp(i).call();
-          const candle = await tokenContract.methods.candleStickData(timestamp).call();
-        
-
-          const openPrice = Number(candle.open);
-          const closePrice = Number(candle.close);
-
-          console.log('Transaction no:', i);
-          console.log('Timestamp:', timestamp);
-          console.log('Candle: ', candle);
-
-          if (openPrice && closePrice) {
-            const priceChange = closePrice - openPrice;
-            const liquidityImpact = liquidityAtTimestamp * (priceChange / openPrice);
-    
-            // Adjust liquidity based on price direction
-             liquidityAtTimestamp = closePrice > openPrice
-              ? liquidityAtTimestamp - liquidityImpact // Price increase (buy)
-              : liquidityAtTimestamp + liquidityImpact; // Price decrease (sell)
-    
-            console.log("Liquidity Impact:", liquidityImpact);
-            console.log("Liquidity at Timestamp:", liquidityAtTimestamp);
-          }
+      let totalTx = await tokenContract.methods.totalTx().call();
+      totalTx = Number(totalTx);
+  
+      for (let i = totalTx; i >= 1; i--) {
+        if (i <= totalTx - 10) break; // Limit to last 10 transactions
+        const timestamp = await tokenContract.methods.txTimeStamp(i).call();
+        const candle = await tokenContract.methods.candleStickData(timestamp).call();
+  
+        const openPrice = Number(candle.open);
+        const closePrice = Number(candle.close);
+  
+        console.log("Transaction no:", i);
+        console.log(
+          "Timestamp:",
+          new Date(Number(timestamp) * 1000).toLocaleString('en-US')
+        );
+  
+        if (openPrice && closePrice) {
+          const priceChange = closePrice - openPrice;
+          const liquidityImpact = liquidityAtTimestamp * (priceChange / openPrice);
+  
+          // Determine if it's a BUY or SELL
+          const isBuy = liquidityImpact < 0;
+          console.log(isBuy ? "BUY." : "SELL.");
+  
+          // Adjust liquidity
+          liquidityAtTimestamp = isBuy
+            ? liquidityAtTimestamp - liquidityImpact
+            : liquidityAtTimestamp + liquidityImpact;
+  
+          console.log("Liquidity Impact:", liquidityImpact);
+          console.log("Liquidity at Timestamp:", liquidityAtTimestamp);
         }
-        
-      } catch (err) {
-        console.error('Error interacting with contract:', err);
-        setError('Failed to fetch liquidity. Please try again.');
       }
-    
+    } catch (err) {
+      console.error("Error interacting with contract:", err);
+      setError("Failed to fetch liquidity. Please try again.");
+    }
   };
 
   const handleInputChange = (e) => {
