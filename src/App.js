@@ -66,6 +66,13 @@ const App = () => {
       outputs: [{ name: '', type: 'uint256' }],
       type: 'function',
     },
+    {
+      constant: true,
+      inputs: [],
+      name: 'getLiquidity',
+      outputs: [{ name: '', type: 'uint256' }],
+      type: 'function',
+    },
   ];
   const tokenContract = new web3.eth.Contract(tokenAbi, tokenAddress);
 
@@ -149,6 +156,7 @@ const App = () => {
   };
 
   const fetchHistoryLiquidity = async () => {
+    /*
     const apiKey = process.env.REACT_APP_BSCSCAN_API_KEY;
     const url = `https://api.bscscan.com/api?module=contract&action=getabi&address=${tokenAddress}&apikey=${apiKey}`;
     let contractAbi = null; // Declare contractAbi outside the try block
@@ -166,26 +174,31 @@ const App = () => {
       setError('Failed to fetch ABI. Please check the address or try again.');
       return; // Exit the function if fetching ABI fails
     }
+      */
   
     // Proceed only if contractAbi is available
-    if (contractAbi) {
-      const LiqContract = new web3.eth.Contract(contractAbi, tokenAddress);
+
   
       try {
-        const currentLiquidity = await LiqContract.methods.getLiquidity().call();
+        const currentLiquidity = await tokenContract.methods.getLiquidity().call();
         console.log('Current Liquidity:', currentLiquidity);
   
-        /*
-        const totalTx = await tokenContract.methods.totalTx().call();
+        
+        let totalTx = await tokenContract.methods.totalTx().call();
+        totalTx = Number(totalTx);
+
         for (let i = totalTx; i >= 1; i--) {
-          // Logic to reconstruct liquidity history
+          if (i <= totalTx - 10) break;
+          const timestamp = await tokenContract.methods.txTimeStamp(i).call();
+          console.log('Transaction no:', i);
+          console.log('Timestamp:', timestamp);
         }
-        */
+        
       } catch (err) {
         console.error('Error interacting with contract:', err);
         setError('Failed to fetch liquidity. Please try again.');
       }
-    }
+    
   };
 
   const handleInputChange = (e) => {
