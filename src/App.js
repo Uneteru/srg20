@@ -156,33 +156,12 @@ const App = () => {
   };
 
   const fetchHistoryLiquidity = async () => {
-    /*
-    const apiKey = process.env.REACT_APP_BSCSCAN_API_KEY;
-    const url = `https://api.bscscan.com/api?module=contract&action=getabi&address=${tokenAddress}&apikey=${apiKey}`;
-    let contractAbi = null; // Declare contractAbi outside the try block
-  
-    try {
-      const response = await fetch(url);
-      const data = await response.json();
-      if (data.status === '1') {
-        contractAbi = JSON.parse(data.result); // Assign value to contractAbi
-      } else {
-        throw new Error('Failed to fetch ABI: ' + data.result);
-      }
-    } catch (err) {
-      console.error('Error fetching ABI:', err);
-      setError('Failed to fetch ABI. Please check the address or try again.');
-      return; // Exit the function if fetching ABI fails
-    }
-      */
-  
-    // Proceed only if contractAbi is available
-
   
       try {
         const currentLiquidity = await tokenContract.methods.getLiquidity().call();
         console.log('Current Liquidity:', currentLiquidity);
   
+        let liquidityAtTimestamp = Number(currentLiquidity);
         
         let totalTx = await tokenContract.methods.totalTx().call();
         totalTx = Number(totalTx);
@@ -190,8 +169,28 @@ const App = () => {
         for (let i = totalTx; i >= 1; i--) {
           if (i <= totalTx - 10) break;
           const timestamp = await tokenContract.methods.txTimeStamp(i).call();
+          const candle = await tokenContract.methods.candleStickData(timestamp).call();
+        
+
+          const openPrice = Number(candle.open);
+          const closePrice = Number(candle.close);
+
           console.log('Transaction no:', i);
           console.log('Timestamp:', timestamp);
+          console.log('Candle: ', candle);
+
+          if (openPrice && closePrice) {
+            const priceChange = closePrice - openPrice;
+            const liquidityImpact = liquidityAtTimestamp * (priceChange / openPrice);
+    
+            // Adjust liquidity based on price direction
+             liquidityAtTimestamp = closePrice > openPrice
+              ? liquidityAtTimestamp - liquidityImpact // Price increase (buy)
+              : liquidityAtTimestamp + liquidityImpact; // Price decrease (sell)
+    
+            console.log("Liquidity Impact:", liquidityImpact);
+            console.log("Liquidity at Timestamp:", liquidityAtTimestamp);
+          }
         }
         
       } catch (err) {
