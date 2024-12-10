@@ -11,6 +11,7 @@ const App = () => {
   const [progress, setProgress] = useState(0);
   const [priceData, setPriceData] = useState([]);
   const [volumeData, setVolumeData] = useState([]);
+  const [timeframe, setTimeframe] = useState('hourly'); // Options: 'hourly' or 'daily'
 
   //Ititializa web3 Contract
   const web3 = new Web3('https://bsc-dataseed4.ninicoin.io/');
@@ -112,6 +113,29 @@ const App = () => {
     setProgress(100);
   };
 
+  const processData = (data, timeframe) => {
+    if (timeframe === 'hourly') {
+      return data; // Return raw data for hourly
+    } else if (timeframe === 'daily') {
+      // Group by date
+      const groupedData = [];
+      data.forEach(item => {
+        const dateKey = new Date(item.date).toLocaleDateString('en-US'); // Extract date
+        const existingEntry = groupedData.find(entry => entry.date === dateKey);
+  
+        if (existingEntry) {
+          existingEntry.closePrice = item.closePrice; // Update with latest price for the day
+        } else {
+          groupedData.push({
+            date: dateKey,
+            closePrice: item.closePrice,
+          });
+        }
+      });
+      return groupedData;
+    }
+  };
+
   const fetchHistoryLiquidity = async () => {
     setProgress(0); // Reset progress
     try {
@@ -144,7 +168,6 @@ const App = () => {
   
           // Determine if it's a BUY or SELL
           const isBuy = liquidityImpact < 0;
-          console.log(isBuy ? "BUY." : "SELL.");
   
           // Adjust liquidity
           liquidityAtTimestamp = isBuy
@@ -255,9 +278,9 @@ const App = () => {
       {priceData.length > 0 && (
         <div style={{ width: '100%', height: 400, marginTop: '20px' }}>
           <ResponsiveContainer>
-            <LineChart data={priceData}>
+            <LineChart data={processData(priceData, timeframe)}>
               <CartesianGrid strokeDasharray="3 3" />
-              <XAxis dataKey="date" tick={{ fontSize: 10 }} />
+              <XAxis dataKey={timeframe === 'hourly' ? 'hour' : 'date'} tick={{ fontSize: 10 }} />
               <YAxis tick={{ fontSize: 12 }} />
               <Tooltip />
               <Line type="monotone" dataKey="closePrice" stroke="#8884d8" dot={false} />
@@ -265,6 +288,14 @@ const App = () => {
           </ResponsiveContainer>
         </div>
       )}
+      <div style={{ marginTop: '20px' }}>
+        <button onClick={() => setTimeframe('hourly')} style={{ marginRight: '10px' }}>
+          Hourly
+        </button>
+        <button onClick={() => setTimeframe('daily')}>
+          Daily
+        </button>
+      </div>
 
       <strong>Volume History Chart (Daily)</strong>
       {volumeData.length > 0 && (
