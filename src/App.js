@@ -10,13 +10,16 @@ const App = () => {
   const [error, setError] = useState('');
   const [progress, setProgress] = useState(0);
   const [priceData, setPriceData] = useState([]);
-
+  const [volumeData, setVolumeData] = useState([]);
 
   //Ititializa web3 Contract
   const web3 = new Web3('https://bsc-dataseed4.ninicoin.io/');
   const tokenAbi = require('./ContractAbi.json');
   const tokenContract = new web3.eth.Contract(tokenAbi, tokenAddress);
-  const dDivisor = 10 ** 45; //SRG20BSC
+
+  //Dividor
+  const pDivisor = 10 ** 45; 
+  const vDivisor = 10 ** 40;
 
   const fetchTokenInfo = async () => {
     setError('');
@@ -39,78 +42,76 @@ const App = () => {
       const totalTx = await tokenContract.methods.totalTx().call();
       const latestTimestamp = await tokenContract.methods.txTimeStamp(totalTx).call();
       const latestCandle = await tokenContract.methods.candleStickData(latestTimestamp).call();
-      const price = Number(latestCandle.close) / dDivisor;
+      const price = Number(latestCandle.close) / pDivisor;
       setTokenPrice(price);
     } catch (err) {
       setError('Failed to fetch token info. Please check the address or try again.');
     }
   };
 
-  const fetchDailyVolume = async () => {
-    const storedData = localStorage.getItem('dailyVolume');
-    if (storedData) {
-      console.log('Daily Volume History:', JSON.parse(storedData));
-      return;
-    }
-
-    const totalTx = await tokenContract.methods.totalTx().call();
-    console.log('Total Transactions:', totalTx);
-
-    const dailyVolume = {};
-
-    for (let i = 1; i <= totalTx; i++) {
-      const txTimestamp = await tokenContract.methods.txTimeStamp(i).call();
-      const txVolume = await tokenContract.methods.tVol(txTimestamp).call();
-      const date = new Date((Number(txTimestamp) * 1000)).toISOString().split('T')[0];
-      console.log(date);
-
-        // Group by date
-        if (!dailyVolume[date]) {
-          dailyVolume[date] = 0;
-        }
-        dailyVolume[date] += parseFloat(web3.utils.fromWei(txVolume, 'ether'));
-        console.log(dailyVolume[date]);
-
-    }
-    localStorage.setItem('dailyVolume', JSON.stringify(dailyVolume));
-    console.log('Daily Volume History:', dailyVolume);
-
-  }
-
   const fetchTokenPriceHistory = async () => {
-    setError('');
+    fetchTokenInfo();
     //localStorage.clear();
     setProgress(0); // Reset progress
 
 
-    const storedData = localStorage.getItem('priceData');
+    /*const storedData = localStorage.getItem('priceData');
     if (storedData) {
       const parsedData = JSON.parse(storedData);
       setPriceData(parsedData); // Set data for the chart
       setProgress(100); // Set progress to 100% if data is already cached
       return;
-    }
+    }*/
 
     const totalTx = await tokenContract.methods.totalTx().call();
     const priceDataArray = [];
+    const volumeDataArray = [];
+    
     for (let i = 1; i <= totalTx; i++) {
+
+
       const timestamp = await tokenContract.methods.txTimeStamp(i).call();
       const candle = await tokenContract.methods.candleStickData(timestamp).call();
-      const closePrice = Number(candle.close) / dDivisor;
+      let txVolume = await tokenContract.methods.tVol(timestamp).call();
+      const tnDate = new Date(Number(timestamp) * 1000).toLocaleString('en-US')
+      const volDate = new Date(Number(timestamp) * 1000).toLocaleDateString('en-US')
+    
+      txVolume = Number(txVolume) / vDivisor;
+      const openPrice = Number(candle.open) / pDivisor
+      const closePrice = Number(candle.close) / pDivisor
+
+      const existingEntry = volumeDataArray.find(entry => entry.date === volDate);
+
+      if (existingEntry) {
+        // If the date exists, add to its volume
+        existingEntry.volume += Number(txVolume);
+      } else {
+        // Otherwise, create a new entry
+        volumeDataArray.push({
+          date: volDate,
+          volume: Number(txVolume),
+        });
+      }
+
       priceDataArray.push({
-        date: new Date(Number(timestamp) * 1000).toLocaleString('en-US'),
+        date: tnDate,
         closePrice,
       });
+
       setProgress(Math.floor((i / Number(totalTx)) * 100));
     }
 
-    localStorage.setItem('priceData', JSON.stringify(priceDataArray));
-    setPriceData(priceDataArray);
-    console.log('All Price Data:', priceData);
+    //localStorage.setItem('priceData', JSON.stringify(priceDataArray));
+
+    setPriceData(priceDataArray)
+    setVolumeData(volumeDataArray)
+    console.log('All Price Data:', priceDataArray);
+    console.log('Daily Volume History:', volumeDataArray);
     setProgress(100); // Ensure progress reaches 100% at the end
   };
 
   const fetchHistoryLiquidity = async () => {
+    setProgress(0); // Reset progress
     try {
       const currentLiquidity = await tokenContract.methods.getLiquidity().call();
       console.log("Current Liquidity:", currentLiquidity);
@@ -133,6 +134,7 @@ const App = () => {
           "Timestamp:",
           new Date(Number(timestamp) * 1000).toLocaleString('en-US')
         );
+
   
         if (openPrice && closePrice) {
           const priceChange = closePrice - openPrice;
@@ -150,7 +152,10 @@ const App = () => {
           console.log("Liquidity Impact:", liquidityImpact);
           console.log("Liquidity at Timestamp:", liquidityAtTimestamp);
         }
+        setProgress(Math.floor((Number(totalTx) / i) * 100));
       }
+
+      setProgress(100); // Ensure progress reaches 100% at the end
     } catch (err) {
       console.error("Error interacting with contract:", err);
       setError("Failed to fetch liquidity. Please try again.");
@@ -180,19 +185,6 @@ const App = () => {
           style={{ padding: '10px', width: '300px', marginRight: '10px' }}
         />
         <button
-          onClick={fetchTokenInfo}
-          style={{
-            padding: '10px',
-            backgroundColor: '#007bff',
-            color: 'white',
-            border: 'none',
-            borderRadius: '5px',
-            cursor: 'pointer',
-          }}
-        >
-          Fetch Price
-        </button>
-        <button
           onClick={fetchTokenPriceHistory}
           style={{
             padding: '10px',
@@ -205,19 +197,7 @@ const App = () => {
         >
           Fetch Price History
         </button>
-        <button
-          onClick={fetchDailyVolume}
-          style={{
-            padding: '10px',
-            backgroundColor: '#007bff',
-            color: 'white',
-            border: 'none',
-            borderRadius: '5px',
-            cursor: 'pointer',
-          }}
-        >
-          Fetch Daily Volume
-        </button>
+
         <button
           onClick={fetchHistoryLiquidity}
           style={{
@@ -277,6 +257,20 @@ const App = () => {
               <YAxis tick={{ fontSize: 12 }} />
               <Tooltip />
               <Line type="monotone" dataKey="closePrice" stroke="#8884d8" dot={false} />
+            </LineChart>
+          </ResponsiveContainer>
+        </div>
+      )}
+
+      {volumeData.length > 0 && (
+        <div style={{ width: '100%', height: 400, marginTop: '20px' }}>
+          <ResponsiveContainer>
+            <LineChart data={volumeData}>
+              <CartesianGrid strokeDasharray="3 3" />
+              <XAxis dataKey="date" tick={{ fontSize: 10 }} />
+              <YAxis tick={{ fontSize: 12 }} />
+              <Tooltip />
+              <Line type="monotone" dataKey="volume" stroke="#8884d8" dot={false} />
             </LineChart>
           </ResponsiveContainer>
         </div>
