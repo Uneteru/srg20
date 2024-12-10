@@ -1,13 +1,13 @@
 import React, { useState } from 'react';
 import Web3 from 'web3';
 
-
 const App = () => {
   const [tokenAddress, setTokenAddress] = useState('0x43C3EBaFdF32909aC60E80ee34aE46637E743d65');
   const [tokenName, setTokenName] = useState('');
   const [tokenSymbol, setTokenSymbol] = useState('');
   const [tokenPrice, setTokenPrice] = useState('');
   const [error, setError] = useState('');
+  const [progress, setProgress] = useState(0);
 
 
   //Ititializa web3 Contract
@@ -76,25 +76,50 @@ const App = () => {
   }
 
   const fetchTokenPriceHistory = async () => {
-    const storedData = localStorage.getItem('newpriceData');
+    setError('');
+    //localStorage.clear();
+    setProgress(0); // Reset progress
+
+
+    const storedData = localStorage.getItem('priceData');
     if (storedData) {
       console.log('All Price Data:', JSON.parse(storedData));
+      setProgress(100); // Set progress to 100% if data is already cached
       return;
     }
 
     const totalTx = await tokenContract.methods.totalTx().call();
     const priceData = [];
     for (let i = 1; i <= totalTx; i++) {
-      if (i > 10) break; // Limit to last 10 transactions
       const timestamp = await tokenContract.methods.txTimeStamp(i).call();
       const candle = await tokenContract.methods.candleStickData(timestamp).call();
       const closePrice = Number(candle.close) / dDivisor;
       priceData.push({ date: new Date(Number(timestamp) * 1000).toLocaleString('en-US'), closePrice });
+      setProgress(Math.floor((i / Number(totalTx)) * 100));
     }
 
     localStorage.setItem('priceData', JSON.stringify(priceData));
     console.log('All Price Data:', priceData);
+    setProgress(100); // Ensure progress reaches 100% at the end
   };
+
+    // Helper function to group data by hourly timeframe
+    const groupByHour = (data) => {
+      const grouped = {};
+      data.forEach((entry) => {
+        const hour = new Date(entry.date).toISOString().slice(0, 13); // Get "YYYY-MM-DDTHH"
+        if (!grouped[hour]) {
+          grouped[hour] = { prices: [], timestamp: hour };
+        }
+        grouped[hour].prices.push(entry.price);
+      });
+  
+      // Calculate average price for each hour
+      return Object.values(grouped).map((group) => ({
+        time: group.timestamp,
+        price: group.prices.reduce((a, b) => a + b, 0) / group.prices.length,
+      }));
+    };
 
   const fetchHistoryLiquidity = async () => {
     try {
@@ -218,6 +243,33 @@ const App = () => {
           Fetch History Liquidity
         </button>
       </div>
+
+
+      {progress > 0 && (
+        <div style={{ marginTop: '20px', width: '50%', margin: '20px auto' }}>
+          <div
+            style={{
+              width: '100%',
+              height: '20px',
+              backgroundColor: '#e0e0e0',
+              borderRadius: '5px',
+              overflow: 'hidden',
+            }}
+          >
+            <div
+              style={{
+                width: `${progress}%`,
+                height: '100%',
+                backgroundColor: '#007bff',
+                transition: 'width 0.3s ease',
+              }}
+            />
+          </div>
+          <p style={{ marginTop: '10px', fontSize: '14px' }}>
+            Progress: {progress}%
+          </p>
+        </div>
+      )}
 
       {tokenName && tokenSymbol && tokenPrice && (
         <div style={{ marginTop: '20px', fontSize: '18px', color: 'green' }}>
