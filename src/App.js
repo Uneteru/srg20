@@ -55,13 +55,16 @@ const App = () => {
     setProgress(0); // Reset progress
 
 
-    /*const storedData = localStorage.getItem('priceData');
-    if (storedData) {
-      const parsedData = JSON.parse(storedData);
-      setPriceData(parsedData); // Set data for the chart
-      setProgress(100); // Set progress to 100% if data is already cached
+    const storedpriceData = localStorage.getItem('priceData');
+    const storedvolumeData = localStorage.getItem('volumeData');
+    if (storedpriceData && storedvolumeData) {
+      const parsedPriceData = JSON.parse(storedpriceData);
+      const parsedVolumeData = JSON.parse(storedvolumeData);
+      setPriceData(parsedPriceData);
+      setVolumeData(parsedVolumeData);
+      setProgress(100);
       return;
-    }*/
+    }
 
     const totalTx = await tokenContract.methods.totalTx().call();
     const priceDataArray = [];
@@ -101,13 +104,14 @@ const App = () => {
       setProgress(Math.floor((i / Number(totalTx)) * 100));
     }
 
-    //localStorage.setItem('priceData', JSON.stringify(priceDataArray));
+    localStorage.setItem('priceData', JSON.stringify(priceDataArray));
+    localStorage.setItem('volumeData', JSON.stringify(volumeDataArray));
 
     setPriceData(priceDataArray)
     setVolumeData(volumeDataArray)
     console.log('All Price Data:', priceDataArray);
     console.log('Daily Volume History:', volumeDataArray);
-    setProgress(100); // Ensure progress reaches 100% at the end
+    setProgress(100);
   };
 
   const fetchHistoryLiquidity = async () => {
@@ -245,9 +249,11 @@ const App = () => {
           <strong>Token Name:</strong> {tokenName} ({tokenSymbol})
           <br />
           <strong>Current Price:</strong> {tokenPrice} SRG
+          <br />
         </div>
       )}
-
+      <br />
+      <strong>Price History Chart</strong>
       {priceData.length > 0 && (
         <div style={{ width: '100%', height: 400, marginTop: '20px' }}>
           <ResponsiveContainer>
@@ -262,6 +268,7 @@ const App = () => {
         </div>
       )}
 
+      <strong>Volume History Chart (Daily)</strong>
       {volumeData.length > 0 && (
         <div style={{ width: '100%', height: 400, marginTop: '20px' }}>
           <ResponsiveContainer>
