@@ -54,7 +54,6 @@ const App = () => {
     //localStorage.clear();
     setProgress(0); // Reset progress
 
-
     const storedpriceData = localStorage.getItem('priceData');
     const storedvolumeData = localStorage.getItem('volumeData');
     if (storedpriceData && storedvolumeData) {
@@ -71,7 +70,6 @@ const App = () => {
     const volumeDataArray = [];
     
     for (let i = 1; i <= totalTx; i++) {
-
 
       const timestamp = await tokenContract.methods.txTimeStamp(i).call();
       const candle = await tokenContract.methods.candleStickData(timestamp).call();
@@ -271,15 +269,15 @@ const App = () => {
       <strong>Volume History Chart (Daily)</strong>
       {volumeData.length > 0 && (
         <div style={{ width: '100%', height: 400, marginTop: '20px' }}>
-<ResponsiveContainer>
-  <BarChart data={volumeData}>
-    <CartesianGrid strokeDasharray="3 3" />
-    <XAxis dataKey="date" tick={{ fontSize: 10 }} />
-    <YAxis tick={{ fontSize: 12 }} />
-    <Tooltip />
-    <Bar dataKey="volume" fill="#8884d8" />
-  </BarChart>
-</ResponsiveContainer>
+          <ResponsiveContainer>
+            <BarChart data={volumeData}>
+              <CartesianGrid strokeDasharray="3 3" />
+              <XAxis dataKey="date" tick={{ fontSize: 10 }} />
+              <YAxis tick={{ fontSize: 12 }} />
+              <Tooltip />
+              <Bar dataKey="volume" fill="#8884d8" />
+            </BarChart>
+          </ResponsiveContainer>
         </div>
       )}
 
