@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import Web3 from 'web3';
-import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
+import { Bar, BarChart, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 
 const App = () => {
   const [tokenAddress, setTokenAddress] = useState('0x43C3EBaFdF32909aC60E80ee34aE46637E743d65');
@@ -271,15 +271,15 @@ const App = () => {
       <strong>Volume History Chart (Daily)</strong>
       {volumeData.length > 0 && (
         <div style={{ width: '100%', height: 400, marginTop: '20px' }}>
-          <ResponsiveContainer>
-            <LineChart data={volumeData}>
-              <CartesianGrid strokeDasharray="3 3" />
-              <XAxis dataKey="date" tick={{ fontSize: 10 }} />
-              <YAxis tick={{ fontSize: 12 }} />
-              <Tooltip />
-              <Line type="monotone" dataKey="volume" stroke="#8884d8" dot={false} />
-            </LineChart>
-          </ResponsiveContainer>
+<ResponsiveContainer>
+  <BarChart data={volumeData}>
+    <CartesianGrid strokeDasharray="3 3" />
+    <XAxis dataKey="date" tick={{ fontSize: 10 }} />
+    <YAxis tick={{ fontSize: 12 }} />
+    <Tooltip />
+    <Bar dataKey="volume" fill="#8884d8" />
+  </BarChart>
+</ResponsiveContainer>
         </div>
       )}
 
